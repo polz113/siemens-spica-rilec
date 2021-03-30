@@ -18,7 +18,7 @@ from spica_api_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY
 # je ID dogodka kar zapecaten.
 ID_REMAP_FILE = "preslikava_kadrovskih.csv"
 
-REGISTRATION_EVENT_ID = 19
+REGISTRATION_EVENT_ID = 25
 
 def get_employees():
     url = APIURL + "/employee"
@@ -27,23 +27,33 @@ def get_employees():
     ret = json.loads(resp.read())
     return ret
 
-
-def get_employees_dict():
-    employee_list = get_employees()
-    d = dict()
-    trans_dict = dict()
+def get_trans_dicts():
+    ulid_to_kadrovska = dict()
+    new_to_old_kadrovska = dict()
     try:
         with open(ID_REMAP_FILE) as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             for row in reader:
-                trans_dict[row[1]] = row[0]
+                if len(row[2]):
+                    new_to_old_kadrovska[row[1]] = row[2]
+                if len(row[0]):
+                    ulid_to_kadrovska[row[0]] = row[1]
     except:
         pass
-    print("TRANS:", trans_dict)
+    return ulid_to_kadrovska, new_to_old_kadrovska
+
+def get_employees_dict(trans_dict):
+    employee_list = get_employees()
+    # print("TRANS:", new_to_old_kadrovska)
+    d = dict()
     for e in employee_list:
         key = e['ReferenceId']
-        print(trans_dict.get(key, key), "->", key)
-        d[trans_dict.get(key, key)] = e
+        # print(old_to_new_kadrovska.get(key, key), "->", key)
+        d[key] = e
+        if key in trans_dict:
+            # print("d:", key, trans_dict[key])
+            d[trans_dict[key]] = e
+    # print(json.dumps(d, indent=4))
     return d
 
 
@@ -58,7 +68,10 @@ def get_event_definitions():
     return ret
 
 
-def put_time_event(timestamp, person_id, event_id): 
+def put_time_event(timestamp, person_id, event_id, fake = False):
+    if fake:
+        print(timestamp, person_id, event_id)
+        return
     params = urllib.parse.urlencode({'SkipHolidays': False, 'numberOfDays': 1,
         'SkipWeekend1': False, "SkipWeekend2": False})
     url = APIURL + "/TimeEvent?" + params
@@ -100,37 +113,110 @@ def register_event(timestamp, employee, events = None):
     return put_time_event(timestamp, employee["Id"], event_id)
 
 
-def read_events(dirname):
+def read_table(fileglob, timeformat, timeoffset = None, trans=dict()):
+    if timeoffset is None:
+        timeoffset = datetime.timedelta()
     events = defaultdict(list)
-    srcglob = os.path.join(dirname, "room-access*.csv")
-    typefixglob = os.path.join(dirname, "fix-event-type*.csv")
-    for filename in glob.glob(srcglob):
+    for filename in glob.glob(fileglob):
         with open(filename, newline='', encoding='utf-16-le') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             header = reader.__next__()
             # print(header)
             for row in reader:
                 # print(row)
-                events[row[0]].append(datetime.datetime.strptime(row[1], "%m/%d/%Y"))
-    for filename in glob.glob(srcglob):
+                t = datetime.datetime.strptime(row[1], timeformat) + timeoffset
+                events[trans.get(row[0], row[0])].append([t] + row[2:])
     return events
 
-    
+def read_type_fixes(dirname, trans):
+    typefixglob = os.path.join(dirname, "event-fix*.csv")
+    t = datetime.datetime.combine(datetime.date.today(), datetime.time.min) 
+    t = t - datetime.datetime.strptime("00:00:00", "%H:%M:%S")
+    return read_table(typefixglob, "%H:%M:%S", t, trans)
+
+def read_events(dirname, trans):
+    srcglob = os.path.join(dirname, "room-access*.csv")
+    t = datetime.timedelta(hours = 10)
+    return read_table(srcglob, "%m/%d/%Y", t, trans)
+
+def fix_events(events, fixes):
+    res = dict()
+    for spica_id, event_list in events.items():
+        # print("list:", event_list)
+        if len(event_list) < 1: continue
+        # print("k2ul:", spica_id_to_ulid, kadrovska)
+        fix_list = fixes.get(spica_id, [])
+        # print("  fixes:", fix_list)
+        fix_list = sorted(fix_list, key= lambda x: x[:0])
+        event_list = sorted(event_list, key= lambda x: x[:0])
+        fix_i = 0
+        event_i = 0
+        while fix_i < len(fix_list) and event_i < len(event_list):
+            event_t = event_list[event_i][0]
+            fix_t = fix_list[fix_i][0]
+            target_i = None
+            fixed_type = None
+            # find last event before fix_t
+            while event_i < len(event_list) and event_t < fix_t:
+                event_t = event_list[event_i][0]
+                target_t = event_t
+                target_i = event_i
+                event_i += 1
+            # print(fix_i, target_i)
+            # the last event timestamp and index are now in target_t/i
+            # find last fix before the target event
+            while fix_i < len(fix_list) and (event_i >= len(event_list) or event_t >= fix_t):
+                fixed_type = fix_list[fix_i][1]
+                fix_t = fix_list[fix_i][0]
+                fix_i += 1
+            # print("final:", target_i, fixed_type)
+            # fixed_type now contains the last type before the next event
+            if (target_i is not None) and (fixed_type is not None):
+                event_list[target_i] = [target_t, fixed_type]
+        latest_events = []
+        old_type = None
+        old_timestamp = event_list[0][0]
+        # remove consecutive events if the type is the same.
+        # print("el:", event_list)
+        for i, (timestamp, event_type) in enumerate(event_list):
+            if i+1 < len(event_list) and event_list[i+1][0] == timestamp: continue
+            if old_type != event_type:
+                latest_events.append([timestamp, event_type])
+            old_type = event_type
+        res[spica_id] = latest_events
+    return res
+
+def get_spicaids(employees):
+    res = dict()
+    for kadrovska, employee in employees.items():
+        spica_id = employee["Id"]
+        res[kadrovska] = spica_id
+    return res
 
 if __name__ == '__main__':
-    events = read_events("samples")
-    employees = get_employees_dict()
+    ulid_to_kadrovska, new_to_old = get_trans_dicts()
+    employees = get_employees_dict(new_to_old)
+    spica_ids = get_spicaids(employees)
+    ulid_to_spica = dict()
+    for k, v in ulid_to_kadrovska.items():
+        spica_id = spica_ids.get(v, None)
+        if spica_id is not None:
+            ulid_to_spica[k] = spica_id
+    # print (spica_ids)
+    events = read_events("samples", spica_ids)
+    fixes = read_type_fixes("samples", ulid_to_spica)
+    events = fix_events(events, fixes)
     # print(employees)
-    # event_definitions = get_event_definitions()
-    for employee_id, timestamps in events.items():
+    event_definitions = get_event_definitions()
+    # print(event_definitions)
+    for spica_id, event_list in events.items():
         try:
-            employee = employees[employee_id]
-            print(employee_id, employee)
-            for timestamp in set(timestamps):
-                print("    ", timestamp)
-                register_event(timestamp, employee)
+            for timestamp, event_type in event_list:
+                # print("    ", timestamp, event_type)
+                put_time_event(timestamp, spica_id, event_type, fake=True)
         except KeyError:
-            print("Neznan uporabnik:", employee)
+            print("Neznan uporabnik:", employee_id)
+            # print(employees)
             continue
 # ret = put_time_event(datetime.datetime.now(), person_id=256, event_id=19)
 #    ret = register_event(datetime.datetime.now(), "6200271", employees = employees,
