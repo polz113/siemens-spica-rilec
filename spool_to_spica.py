@@ -6,6 +6,7 @@ import datetime
 import csv
 import glob
 import os
+import fcntl
 import itertools
 import argparse
 
@@ -13,20 +14,21 @@ from collections import defaultdict
 
 from urllib import parse, request
 
-from spica_api_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY
-
-# Ker je testno okolje povsem drugacno od produkcijskega,
-# je ID dogodka kar zapecaten.
-
-SPOOL_DIR = "/home/polz/projekti/siemens_log_examples/spool"
+from siemens_spica_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY,\
+    SPOOL_DIR, SPOOL_FNAME, OLDEVENTS_FNAME
 
 
-SPOOL_FNAME = "new_events.csv"
-OLDEVENTS_FNAME = "old_events.csv"
+# SPOOL_DIR = "/home/polz/projekti/siemens_log_examples/spool"
+
+
+#SPOOL_FNAME = "new_events.csv"
+#OLDEVENTS_FNAME = "old_events.csv"
 FAKEEVENTS_FNAME = "fake_events.csv"
 
 EVENT_TRANSLATIONS = {
     '2': 43,
+    '7': 43,
+    '69': 43,
     "odhod": 44,
     "malica": 45,
     "sluzbeni": 47,
@@ -54,8 +56,8 @@ def get_event_definitions():
     return ret
 
 
-def put_time_event(api_url, api_key, timestamp, person_id, event_id, fake = True):
-    print(timestamp, name_trans.get(person_id, person_id), event_id)
+def put_time_event(api_url, api_key, timestamp, person_id, event_id, fake = True, spica_names = {}):
+    print(timestamp, spica_names.get(person_id, person_id), event_id)
     if fake:
         # print(timestamp, person_id, event_id)
         return
@@ -87,74 +89,49 @@ def put_time_event(api_url, api_key, timestamp, person_id, event_id, fake = True
     return ret
 
 
-def read_table(fileglob, trans, min_t = None, max_t = None):
-    events = defaultdict(list)
-    date0 = datetime.datetime.combine(datetime.date.today(), datetime.time.min) 
-    t0 = datetime.timedelta(hours = 10)
-    for filename in glob.glob(fileglob):
-        with open(filename, newline='', encoding='utf-16-le') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-            header = reader.__next__()
-            # print(header)
-            for row in reader:
-                if row[0] not in trans: continue 
-                if len(row[1]) > 0:
-                    t = datetime.datetime.strptime(row[1], DATEFORMAT)
-                else:
-                    t = date0
-                # print(t)
-                if len(row[2]) > 0:
-                    t += datetime.datetime.strptime(row[2], TIMEFORMAT) - \
-                         datetime.datetime.strptime("00:00:00", TIMEFORMAT)
-                else:
-                    t += t0
-                if (min_t is not None and t < min_t) or \
-                   (max_t is not None and t > max_t):
-                    # print(t, min_t, max_t)
-                    t = None
-                if t is not None:
-                    # print(t, min_t, max_t)
-                    events[trans[row[0]]].append([t] + row[3:])
-    return events
-
 def get_spicaids(employees):
     kadrovska_to_spica = dict()
     spica_to_name = dict()
-    for kadrovska, employee in employees.items():
+    for employee in employees:
         spica_id = employee["Id"]
+        kadrovska = employee["ReferenceId"]
         kadrovska_to_spica[kadrovska] = spica_id
         spica_to_name[spica_id] = employee["FirstName"] + " " + employee["LastName"]
     return kadrovska_to_spica, spica_to_name
+
 
 def handle_events(spooldir, api_url, api_key, 
         spica_ids, spica_names, event_translations,
         skip_last, fake):
     for kadrovska in os.listdir(spooldir):
         spoolname = os.path.join(spooldir, kadrovska, SPOOL_FNAME)
-        if commit:
+        if not fake:
             eventsname = os.path.join(spooldir, kadrovska, OLDEVENTS_FNAME)
         else:
             eventsname = os.path.join(spooldir, kadrovska, FAKEEVENTS_FNAME)
-        if isfile(spoolname):
+        if os.path.isfile(spoolname):
             with open(spoolname, "r+") as spoolfile,\
                     open(eventsname, "a") as eventsfile:
                 fcntl.lockf(spoolfile, fcntl.LOCK_EX)
                 fcntl.lockf(eventsfile, fcntl.LOCK_EX)
-                #TODO lock files
                 something_failed = False
                 try:
                     spica_id = spica_ids[kadrovska]
                     reader = csv.reader(spoolfile, delimiter=',', quotechar='"')
                     writer = csv.writer(eventsfile)
+                    rows = sorted(list(reader))
                     if skip_last:
-                        reader = list(reader)[:-1]
-                    for row in reader[:endpos]:
+                        rows = rows[:-1]
+                    old_event_type = None
+                    for row in rows:
                         timestamp = datetime.datetime.fromisoformat(row[0])
                         event_type = event_translations[row[1]]
-                        put_time_event(api_url, api_key, timestamp, 
-                                spica_id, event_type, fake=fake)
-                        writer.write(row)
-                    spoolfile.truncate()
+                        if event_type != old_event_type:
+                            put_time_event(api_url, api_key, timestamp, 
+                                spica_id, event_type, fake=fake, spica_names=spica_names)
+                            old_event_type = event_type
+                        writer.writerow(row)
+                    spoolfile.truncate(0)
                 except Exception as e:
                     print(e)
                     something_failed = True
@@ -172,13 +149,13 @@ if __name__ == '__main__':
                     default=False, const=True,
                     help='Izvedi dejanski prenos podatkov')
     parser.add_argument('--spooldir', dest='spooldir', action='store',
-                    default=SPOOL_DIR, nargs=1,
+                    default=SPOOL_DIR,
                     help='Imenik s podatki')
     parser.add_argument('--url', dest='api_url', action='store',
-                    default=APIURL, nargs=1,
+                    default=APIURL,
                     help='Naslov Spice')
     parser.add_argument('--apikey', dest='api_key', action='store',
-                    default=SPICA_KEY, nargs=1, type=str,
+                    default=SPICA_KEY, type=str,
                     help='Skrivnost za dostop do Spice')
     args = parser.parse_args()
     employees = get_employees(args.api_url, args.api_key)
@@ -186,7 +163,7 @@ if __name__ == '__main__':
     handle_events(spooldir=args.spooldir, api_url=args.api_url, api_key=args.api_key, 
                   spica_ids=spica_ids, spica_names=spica_names,
                   event_translations=EVENT_TRANSLATIONS,
-                  skip_last=args.skip_last, fake=not args.commit)
+                  skip_last=args.skiplast, fake=not args.commit)
     # set_last_to = None
     # upload_events(min_t, max_t, set_last_to, skip_last=False, fake=True)
     # set_last_to = None

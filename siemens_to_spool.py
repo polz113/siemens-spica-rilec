@@ -27,6 +27,7 @@ def read_log_events(events_by_id, logfname):
             events_by_id[row[0]].append([t, row[3]])
     # print(events_by_id)
 
+
 def read_spool_events(spoolfile):
     spoolfile.seek(0)
     events = dict()
@@ -35,6 +36,7 @@ def read_spool_events(spoolfile):
         t = datetime.datetime.fromisoformat(row[0])
         events[t] = row[1]
     return events
+
 
 def siemens_to_spool(log_glob, spool_dir, old_log_list):
     logs = set(glob.glob(log_glob))
@@ -68,6 +70,7 @@ def siemens_to_spool(log_glob, spool_dir, old_log_list):
                 new_events.update(events)
                 new_events = sorted([[k, v] for k, v in new_events.items()])
                 spoolfile.seek(0)
+                spoolfile.truncate(0)
                 writer = csv.writer(spoolfile, delimiter=',', quotechar='"')
                 writer.writerows(new_events)
                 fcntl.lockf(spoolfile, fcntl.LOCK_UN)
