@@ -4,7 +4,7 @@ import argparse
 import csv
 import os
 
-from siemens_spica_settings import SPOOL_DIR, ULID_SPOOL_DIR, FIX_FNAME
+from siemens_spica_settings import SPOOL_DIR, ULID_SPOOL_DIR, FIX_FNAME, NOCOMMIT_FNAME
 FIX_OWNER=1001
 FIX_GROUP=33
 
@@ -44,6 +44,12 @@ if __name__ == '__main__':
                     pass
                 os.chown(fix_f, FIX_OWNER, FIX_GROUP)
                 os.chmod(fix_f, 0o660,)
+            nocommit_f = os.path.join(ulid_f, NOCOMMIT_FNAME)
+            if not os.path.exists(nocommit_f):
+                with open(nocommit_f, "a"):
+                    pass
+                os.chown(nocommit_f, FIX_OWNER, FIX_GROUP)
+                os.chmod(nocommit_f, 0o660,)
             if len(stara) > 0:
                 stara_f = os.path.join(spooldir, stara[-6:])
                 if os.path.islink(stara_f):

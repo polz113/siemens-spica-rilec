@@ -15,7 +15,7 @@ from collections import defaultdict
 from urllib import parse, request
 
 from siemens_spica_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY,\
-    SPOOL_DIR, SPOOL_FNAME, OLDEVENTS_FNAME
+    SPOOL_DIR, SPOOL_FNAME, OLDEVENTS_FNAME, NOCOMMIT_FNAME
 
 
 # SPOOL_DIR = "/home/polz/projekti/siemens_log_examples/spool"
@@ -56,9 +56,10 @@ def get_event_definitions():
     return ret
 
 
-def put_time_event(api_url, api_key, timestamp, person_id, event_id, fake = True, spica_names = {}):
+def put_time_event(api_url, api_key, timestamp, person_id, event_id,
+                   commit=False, spica_names={}):
     print(timestamp, spica_names.get(person_id, person_id), event_id)
-    if fake:
+    if not commit:
         # print(timestamp, person_id, event_id)
         return
     params = urllib.parse.urlencode({'SkipHolidays': False, 'numberOfDays': 1,
@@ -100,12 +101,25 @@ def get_spicaids(employees):
     return kadrovska_to_spica, spica_to_name
 
 
+def __ends_with_1(fname):
+    try:
+        with open(fname) as f:
+            f.seek(-2, 2)
+            d = f.read().strip()
+            if d[-1] == "1":
+                return True
+    except:
+        pass
+    return False
+
+
 def handle_events(spooldir, api_url, api_key, 
         spica_ids, spica_names, event_translations,
-        skip_last, fake):
+        skip_last, commit):
     for kadrovska in os.listdir(spooldir):
         spoolname = os.path.join(spooldir, kadrovska, SPOOL_FNAME)
-        if not fake:
+        nocommitname = os.path.join(spooldir, kadrovska, NOCOMMIT_FNAME)
+        if commit:
             eventsname = os.path.join(spooldir, kadrovska, OLDEVENTS_FNAME)
         else:
             eventsname = os.path.join(spooldir, kadrovska, FAKEEVENTS_FNAME)
@@ -127,13 +141,16 @@ def handle_events(spooldir, api_url, api_key,
                         timestamp = datetime.datetime.fromisoformat(row[0])
                         event_type = event_translations[row[1]]
                         if event_type != old_event_type:
+                            commit_this = commit and not __ends_with_1(nocommitname)
+                            print(commit_this, __ends_with_1(nocommitname))
                             put_time_event(api_url, api_key, timestamp, 
-                                spica_id, event_type, fake=fake, spica_names=spica_names)
+                                    spica_id, event_type, commit=commit_this,
+                                    spica_names=spica_names)
                             old_event_type = event_type
                         writer.writerow(row)
                     spoolfile.truncate(0)
                 except Exception as e:
-                    print(e)
+                    # print(e)
                     something_failed = True
                 finally:
                     fcntl.lockf(spoolfile, fcntl.LOCK_UN)
@@ -163,7 +180,7 @@ if __name__ == '__main__':
     handle_events(spooldir=args.spooldir, api_url=args.api_url, api_key=args.api_key, 
                   spica_ids=spica_ids, spica_names=spica_names,
                   event_translations=EVENT_TRANSLATIONS,
-                  skip_last=args.skiplast, fake=not args.commit)
+                  skip_last=args.skiplast, commit=args.commit)
     # set_last_to = None
     # upload_events(min_t, max_t, set_last_to, skip_last=False, fake=True)
     # set_last_to = None
