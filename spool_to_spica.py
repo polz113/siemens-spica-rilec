@@ -58,7 +58,7 @@ def get_event_definitions():
 
 def put_time_event(api_url, api_key, timestamp, person_id, event_id,
                    commit=False, spica_names={}):
-    print(timestamp, spica_names.get(person_id, person_id), event_id)
+    print(timestamp, spica_names.get(person_id, person_id), event_id, commit)
     if not commit:
         # print(timestamp, person_id, event_id)
         return
@@ -103,12 +103,13 @@ def get_spicaids(employees):
 
 def __ends_with_1(fname):
     try:
-        with open(fname) as f:
+        with open(fname, 'rb') as f:
             f.seek(-2, 2)
-            d = f.read().strip()
+            d = f.read().decode("utf-8").strip()
             if d[-1] == "1":
                 return True
-    except:
+    except Exception as e:
+        # print(e)
         pass
     return False
 
@@ -142,7 +143,7 @@ def handle_events(spooldir, api_url, api_key,
                         event_type = event_translations[row[1]]
                         if event_type != old_event_type:
                             commit_this = commit and not __ends_with_1(nocommitname)
-                            print(commit_this, __ends_with_1(nocommitname))
+                            # print(commit_this, __ends_with_1(nocommitname))
                             put_time_event(api_url, api_key, timestamp, 
                                     spica_id, event_type, commit=commit_this,
                                     spica_names=spica_names)
