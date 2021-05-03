@@ -2,7 +2,7 @@
 
 Vmesnik za prenos podatkov iz sistema Siemens SiPass v sistem Spica time&space.
 
-Uporablja se na UL FRI za evidenco prisotnosti na delovnem mestu.
+Uporablja se na UL FRI za evidenco prisotnosti na delovnem mestu. Skupaj s tem programom na istih podatkih dela [spletna aplikacija registrator.fri.uni-lj.si](https://github.com/polz113/registrator).
 
 ## Kako deluje
 
