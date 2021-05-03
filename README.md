@@ -8,9 +8,7 @@ Uporablja se na UL FRI za evidenco prisotnosti na delovnem mestu.
 
 ### Nastavitve
 
-Nastavitve so v datotekah *siemens\_spica\_settings.py* - poti z datotekami, *spica_api_settings.py* - ključ in URL Spica vmesnika.
-
-#### siemens\_spica\_settings.py
+Nastavitve so v datoteki *siemens\_spica\_settings.py*.
 
 - LOG\_GLOB - datoteke, ki jih ustvari Siemens SIPASS
 - SPOOL\_DIR - imenik z dogodki; v tem imeniku je za vsako kadrovsko št. podimenik.
@@ -20,8 +18,6 @@ Nastavitve so v datotekah *siemens\_spica\_settings.py* - poti z datotekami, *sp
 - FIX\_FNAME - datoteka s popravki tipov dogodkov
 
 - NOCOMMIT\_FNAME - datoteka, v katero se zapisujejo vklopi/izklopi prenašanja v SAP za zaposlenega
-
-#### spica\_api\_settings.py
 
 - *APIURL* - URL, ki ga dobimo od Špice
 - *SPICA\_USER* - uporabnik, ki ga dobimo od Špice
