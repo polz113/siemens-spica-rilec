@@ -9,6 +9,8 @@ import os
 import fcntl
 import itertools
 import argparse
+import traceback
+
 
 from collections import defaultdict
 
@@ -28,6 +30,7 @@ FAKEEVENTS_FNAME = "fake_events.csv"
 EVENT_TRANSLATIONS = {
     '2': 43,
     '7': 43,
+    '8': 43,
     '69': 43,
     "odhod": 44,
     "malica": 45,
@@ -151,7 +154,8 @@ def handle_events(spooldir, api_url, api_key,
                         writer.writerow(row)
                     spoolfile.truncate(0)
                 except Exception as e:
-                    # print(e)
+                    print(e)
+                    traceback.print_exc()
                     something_failed = True
                 finally:
                     fcntl.lockf(spoolfile, fcntl.LOCK_UN)
