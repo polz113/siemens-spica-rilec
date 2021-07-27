@@ -5,6 +5,7 @@ import fcntl
 import glob
 import csv
 import datetime
+import sys
 from collections import defaultdict
 
 from siemens_spica_settings import LOG_GLOB, OLD_LOG_LIST, SPOOL_DIR, SPOOL_FNAME,\
@@ -15,16 +16,25 @@ DATEFORMAT = "%m/%d/%Y"
 
 
 def read_log_events(events_by_id, logfname):
-    with open(logfname, newline='', encoding='utf-16-le') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-        header = reader.__next__()
-        for row in reader:
-            if len(row[0]) == 0:
-                continue
-            t = datetime.datetime.strptime(row[1], DATEFORMAT)
-            t += datetime.datetime.strptime(row[2], TIMEFORMAT) - \
-                 datetime.datetime.strptime("00:00:00", TIMEFORMAT)
-            events_by_id[row[0]].append([t, row[3]])
+    row_n = 0
+    try:
+        with open(logfname, newline='', encoding='utf-16-le') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+            header = reader.__next__()
+            for row in reader:
+                row_n += 1
+                if len(row[0]) == 0:
+                    continue
+                t = datetime.datetime.strptime(row[1], DATEFORMAT)
+                t += datetime.datetime.strptime(row[2], TIMEFORMAT) - \
+                     datetime.datetime.strptime("00:00:00", TIMEFORMAT)
+                events_by_id[row[0]].append([t, row[3]])
+        return True
+    except Exception as e:
+        print(logfname, file=sys.stderr)
+        print("  ", row_n, file=sys.stderr)
+        print(e, file=sys.stderr)
+        return False
     # print(events_by_id)
 
 
@@ -46,9 +56,10 @@ def siemens_to_spool(log_glob, spool_dir, old_log_list):
         old_logs = set(oldlogs_file.read().splitlines())
         events_by_id = defaultdict(list)
         done_logs = set()
+        error_logs = set()
         for logfname in logs - old_logs:
-            read_log_events(events_by_id, logfname)
-            done_logs.add(logfname)
+            if (read_log_events(events_by_id, logfname)):
+                done_logs.add(logfname)
         for employee_id, log_events in events_by_id.items():
             # print(employee_id)
             spool_dirname = os.path.join(spool_dir, employee_id)
@@ -78,6 +89,7 @@ def siemens_to_spool(log_glob, spool_dir, old_log_list):
         oldlogs_file.seek(0, 2) # seek to end of file
         oldlogs_file.writelines("%s\n" % i for i in done_logs)
         fcntl.lockf(oldlogs_file, fcntl.LOCK_UN)
+        
 
 
 if __name__ == '__main__':
