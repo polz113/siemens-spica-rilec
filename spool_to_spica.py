@@ -63,7 +63,6 @@ def put_time_event(api_url, api_key, timestamp, person_id, event_id,
                    commit=False, spica_names={}):
     print(timestamp, spica_names.get(person_id, person_id), event_id, commit)
     if not commit:
-        # print(timestamp, person_id, event_id)
         return
     params = urllib.parse.urlencode({'SkipHolidays': False, 'numberOfDays': 1,
         'SkipWeekend1': False, "SkipWeekend2": False})
