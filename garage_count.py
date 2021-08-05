@@ -14,6 +14,32 @@ DATEFORMAT = "%m/%d/%Y"
 
 FILENAMEFORMAT = "garage-access(%Y-%m-%d *).csv"
 
+OUT_FUNCTIONS = dict()
+
+# register output
+try:
+    import csv
+    def write_csv(l, outfname):
+        with open(outfname, 'w') as outfile:
+            writer = csv.writer(outfile)
+            writer.writerows(l)
+    OUT_FUNCTIONS['csv'] = write_csv
+except:
+    pass
+
+try:
+    import openpyxl
+    def write_xlsx(l, outfname):
+        wb = openpyxl.workbook.Workbook()
+        ws = wb.active
+        for i in l:
+            ws.append(i)
+        wb.save(outfname)
+    OUT_FUNCTIONS['xlsx'] = write_xlsx
+except Exception as e:
+    print(e)
+    pass
+
 def count_days(fnames, start_date = None, end_date = None):
     res = defaultdict(set)
     for fname in fnames:
@@ -45,8 +71,13 @@ if __name__ == '__main__':
                     help='Koncni datum; privzeto konec preteklega meseca; oblike 2010-01-22')
     parser.add_argument('-d', '--dates', dest='show_dates', action='store_true',
                     help='Izpisi tudi datume, ko je bil zaposleni na FRI')
+    parser.add_argument('-f', '--format', dest='out_format', action='store',
+                    default="csv",
+                    help='Format izhodne datoteke; podprti: ' + ",".join(OUT_FUNCTIONS.keys()))
     parser.add_argument('dirname', action='store',
                     help='Imenik z log datotekami')
+    parser.add_argument('outfile', action='store',
+                    help='Izhodna datoteka; {start} se nadomesti z zacetnim, {end} s koncnim datumom')
     args = parser.parse_args()
     dirname = args.dirname
     start_date = datetime.date.fromisoformat(args.start)
@@ -64,10 +95,14 @@ if __name__ == '__main__':
         fnames += glob.glob(g)
 #    print(fnames)
     visits = count_days(fnames, start_date, end_date)
+    l = []
     for kadrovska, v in visits.items():
         if show_dates:
             visit_dates = "; ".join([i.isoformat() for i in sorted(list(v))])
         else:
             visit_dates = ""
         row = (kadrovska, str(len(v)), visit_dates)
-        print(",".join(row))
+        l.append(row)
+    outfname = args.outfile.format(**{'start': start_date.isoformat(), 
+                'end': end_date.isoformat()})
+    OUT_FUNCTIONS[args.out_format](l, outfname)
