@@ -16,6 +16,12 @@ FILENAMEFORMAT = "garage-access(%Y-%m-%d *).csv"
 
 OUT_FUNCTIONS = dict()
 
+def fri_calculation(days):
+    return min(days * 0.5, 8.0)
+
+def is_employee(ks):
+    return ks.startswith('023')
+
 # register output
 try:
     import csv
@@ -71,6 +77,10 @@ if __name__ == '__main__':
                     help='Koncni datum; privzeto konec preteklega meseca; oblike 2010-01-22')
     parser.add_argument('-d', '--dates', dest='show_dates', action='store_true',
                     help='Izpisi tudi datume, ko je bil zaposleni na FRI')
+    parser.add_argument('-c', '--calculation', dest='fri_calculation', action='store_true',
+                    help='V .xlsx dodaj izracun parkirnine po pravilih FRI')
+    parser.add_argument('-m', '--employees', dest='employees_only', action='store_true',
+                    help='Filtriraj - samo veljavne kadrovske')
     parser.add_argument('-f', '--format', dest='out_format', action='store',
                     default="csv",
                     help='Format izhodne datoteke; podprti: ' + ",".join(OUT_FUNCTIONS.keys()))
@@ -82,7 +92,6 @@ if __name__ == '__main__':
     dirname = args.dirname
     start_date = datetime.date.fromisoformat(args.start)
     end_date = datetime.date.fromisoformat(args.end)
-    show_dates = args.show_dates
     globs = []
     i = start_date
     while i <= end_date:
@@ -96,12 +105,37 @@ if __name__ == '__main__':
 #    print(fnames)
     visits = count_days(fnames, start_date, end_date)
     l = []
+    l.append(('Kadrovska številka', 
+              'Priimek in ime', 
+              'Davčna številka', 
+              'Zač. velj.', 
+              'Znesek', 
+              'Št. Obr.', 
+              'Saldo', 
+              'Model', 
+              'Sklic'))
     for kadrovska, v in visits.items():
-        if show_dates:
+        if args.show_dates:
             visit_dates = "; ".join([i.isoformat() for i in sorted(list(v))])
         else:
             visit_dates = ""
-        row = (kadrovska, str(len(v)), visit_dates)
+        if args.fri_calculation:
+            calc_result = fri_calculation(len(v))
+        else:
+            calc_result = ""
+        if args.employees_only and not is_employee(kadrovska):
+            continue
+        # TULE NAPOLNIMO TABELO
+        row = (kadrovska, 
+               '', # priimek in ime 
+               '', # davcna
+               start_date.strftime("%m/%d/%Y"),
+               calc_result, # znesek
+               str(len(v)), # st. obr.
+               0.0, # saldo
+               99, # model
+               '',
+               visit_dates) # sklic
         l.append(row)
     outfname = args.outfile.format(**{'start': start_date.isoformat(), 
                 'end': end_date.isoformat()})

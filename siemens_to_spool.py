@@ -12,7 +12,8 @@ from siemens_spica_settings import LOG_GLOB, OLD_LOG_LIST, SPOOL_DIR, SPOOL_FNAM
         OLDEVENTS_FNAME
 
 TIMEFORMAT = "%H:%M:%S"
-DATEFORMAT = "%m/%d/%Y"
+# DATEFORMAT = "%m/%d/%Y"
+DATEFORMAT = "%d. %m. %Y"
 
 
 def read_log_events(events_by_id, logfname):
