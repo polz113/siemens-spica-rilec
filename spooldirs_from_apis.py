@@ -64,13 +64,16 @@ if __name__ == '__main__':
             nove_kadrovske = nove_kadrovske[1:]
             print("mkdir ", kadrovska_fdir)
             os.mkdir(kadrovska_fdir)
-        print("kadrovska_fdir:", kadrovska_fdir, nove_kadrovske + [ulid_f])
-        for fname in nove_kadrovske + [ulid_f]:     
+        # print("kadrovska_fdir:", kadrovska_fdir, nove_kadrovske + [ulid_f])
+        for fname in nove_kadrovske + [ulid_f]:
             if os.path.islink(fname):
-                print("unlink ", fname)
-                os.unlink(fname)
-            print("symlink ", kadrovska_fdir, fname)
-            os.symlink(kadrovska_fdir, fname)
+                if os.readlink(fname) != kadrovska_fdir:
+                    print("unlink ", fname)
+                    os.unlink(fname)
+                    os.symlink(kadrovska_fdir, fname)
+            else:
+                print("symlink ", kadrovska_fdir, fname)
+                os.symlink(kadrovska_fdir, fname)
         fix_f = os.path.join(ulid_f, FIX_FNAME)
         if not os.path.exists(fix_f):
             with open(fix_f, "a"):
