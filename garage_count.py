@@ -10,7 +10,8 @@ import argparse
 from collections import defaultdict
 
 from urllib import parse, request
-DATEFORMAT = "%m/%d/%Y"
+DATEFORMAT = "%d. %m. %Y"
+# DATEFORMAT = "%d/%m/%Y"
 
 FILENAMEFORMAT = "garage-access(%Y-%m-%d *).csv"
 

@@ -49,44 +49,48 @@ def __read_eventfile(f):
 
 def fix_events(spooldir):
     for kadrovska in os.listdir(spooldir):
+        # print("kadrovska:", kadrovska)
         spoolname = os.path.join(spooldir, kadrovska, SPOOL_FNAME)
         fixedname = os.path.join(spooldir, kadrovska, FIXED_FNAME)
         fixname = os.path.join(spooldir, kadrovska, FIXES_FNAME)
         oldfixname = os.path.join(spooldir, kadrovska, OLDFIXES_FNAME)
         if not os.path.isfile(spoolname) or not os.path.isfile(fixname):
             continue
-        with open(spoolname, "r") as spoolfile,\
-                open(fixname, "r") as fixfile,\
-                open(fixedname, "w") as fixedfile:
-            events = __read_eventfile(spoolfile)
-            fixes = __read_eventfile(fixfile)
-            fixed = csv.writer(fixedfile, delimiter=',', quotechar='"')
-            if len(fixes) == 0:
-                continue
-            fix_i = 0
-            event_i = 0
-            target_i = None
-            while fix_i < len(fixes) and event_i < len(events):
-                fix_t, fixed_type = fixes[fix_i]
-                # print(fix_t, fixed_type)
-                event_t = events[event_i][0]
-                while event_t is not None and event_t < fix_t:
-                    target_t = event_t
-                    target_i = event_i
-                    event_i += 1
-                    if event_i < len(events):
-                        event_t = events[event_i][0]
-                    else:
-                        event_t = None
-                # print("  ", target_t, target_i, fixed_type)
-                while fix_i < len(fixes) and (event_t is None or event_t >= fixes[fix_i][0]):
-                    fixed_type = fixes[fix_i][1]
-                    fix_i += 1
-                # print("  ", target_t, target_i, fix_t, fixed_type)
-                if (target_i is not None) and (fixed_type is not None):
-                    events[target_i][1] = fixed_type
-            fixed.writerows(events)
-        os.rename(fixedname, spoolname)
+        try:
+            with open(spoolname, "r") as spoolfile,\
+                    open(fixname, "r") as fixfile,\
+                    open(fixedname, "w") as fixedfile:
+                events = __read_eventfile(spoolfile)
+                fixes = __read_eventfile(fixfile)
+                fixed = csv.writer(fixedfile, delimiter=',', quotechar='"')
+                if len(fixes) == 0:
+                    continue
+                fix_i = 0
+                event_i = 0
+                target_i = None
+                while fix_i < len(fixes) and event_i < len(events):
+                    fix_t, fixed_type = fixes[fix_i]
+                    # print(fix_t, fixed_type)
+                    event_t = events[event_i][0]
+                    while event_t is not None and event_t < fix_t:
+                        target_t = event_t
+                        target_i = event_i
+                        event_i += 1
+                        if event_i < len(events):
+                            event_t = events[event_i][0]
+                        else:
+                            event_t = None
+                    # print("  ", target_t, target_i, fixed_type)
+                    while fix_i < len(fixes) and (event_t is None or event_t >= fixes[fix_i][0]):
+                        fixed_type = fixes[fix_i][1]
+                        fix_i += 1
+                    # print("  ", target_t, target_i, fix_t, fixed_type)
+                    if (target_i is not None) and (fixed_type is not None):
+                        events[target_i][1] = fixed_type
+                fixed.writerows(events)
+            os.rename(fixedname, spoolname)
+        except:
+            pass
 
 
 if __name__ == '__main__':

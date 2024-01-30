@@ -61,7 +61,7 @@ def get_event_definitions():
 
 def put_time_event(api_url, api_key, timestamp, person_id, event_id,
                    commit=False, spica_names={}):
-    print(timestamp, spica_names.get(person_id, person_id), event_id, commit)
+    print(timestamp, person_id, spica_names.get(person_id, person_id), event_id, commit)
     if not commit:
         return
     params = urllib.parse.urlencode({'SkipHolidays': False, 'numberOfDays': 1,
@@ -118,7 +118,7 @@ def __ends_with_1(fname):
 
 def handle_events(spooldir, api_url, api_key, 
         spica_ids, spica_names, event_translations,
-        skip_last, commit):
+        skip_last, no_skip_same=True, commit=False):
     for kadrovska in os.listdir(spooldir):
         spoolname = os.path.join(spooldir, kadrovska, SPOOL_FNAME)
         nocommitname = os.path.join(spooldir, kadrovska, NOCOMMIT_FNAME)
@@ -143,7 +143,7 @@ def handle_events(spooldir, api_url, api_key,
                     for row in rows:
                         timestamp = datetime.datetime.fromisoformat(row[0])
                         event_type = event_translations[row[1]]
-                        if event_type != old_event_type:
+                        if (event_type != old_event_type) or no_skip_same:
                             commit_this = commit and not __ends_with_1(nocommitname)
                             # print(commit_this, __ends_with_1(nocommitname))
                             put_time_event(api_url, api_key, timestamp, 
@@ -175,6 +175,9 @@ if __name__ == '__main__':
     parser.add_argument('--url', dest='api_url', action='store',
                     default=APIURL,
                     help='Naslov Spice')
+    parser.add_argument('--noskipsame', dest='noskipsame', action='store_const',
+                    default=False, const=True,
+                    help='Ne preskoci zaporednih dogodkov istega tipa')
     parser.add_argument('--apikey', dest='api_key', action='store',
                     default=SPICA_KEY, type=str,
                     help='Skrivnost za dostop do Spice')
@@ -184,7 +187,8 @@ if __name__ == '__main__':
     handle_events(spooldir=args.spooldir, api_url=args.api_url, api_key=args.api_key, 
                   spica_ids=spica_ids, spica_names=spica_names,
                   event_translations=EVENT_TRANSLATIONS,
-                  skip_last=args.skiplast, commit=args.commit)
+                  skip_last=args.skiplast, no_skip_same=args.noskipsame,
+                  commit=args.commit)
     # set_last_to = None
     # upload_events(min_t, max_t, set_last_to, skip_last=False, fake=True)
     # set_last_to = None

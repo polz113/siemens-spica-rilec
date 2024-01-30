@@ -53,12 +53,14 @@ if __name__ == '__main__':
         ulid_f = os.path.join(ulidspooldir, ulid)
         nove_kadrovske = []
         kadrovska_fdir = None
-        for kadrovska in kadrovske:
+        for kadrovska in sorted(kadrovske):
             kadrovska_f = os.path.join(spooldir, kadrovska)
-            if not os.path.exists(kadrovska_f):
+            if not (os.path.isdir(kadrovska_f) or os.path.islink(kadrovska_f)):
                 nove_kadrovske.append(kadrovska_f)
             elif kadrovska_fdir is None:
                 kadrovska_fdir = kadrovska_f
+            else:
+                print("duplicate employee number:", kadrovska, kadrovska_fdir)
         if kadrovska_fdir is None:
             kadrovska_fdir = nove_kadrovske[0]
             nove_kadrovske = nove_kadrovske[1:]
