@@ -13,7 +13,6 @@ from apis_preslikava_kadrovskih_settings import APIS_USERS_URL, APIS_API_KEY
 FIX_OWNER=1001
 FIX_GROUP=33
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Prenesi podatke na spico')
     parser.add_argument('--spooldir', dest='spooldir', action='store',
@@ -49,33 +48,64 @@ if __name__ == '__main__':
         print("The request failed with status code: " + str(error.code))
         print(error.info())
         print(json.loads(error.read()))
+    trashdir = os.path.join(spooldir, "conflicts")
     for ulid, kadrovske in uids.items():
         ulid_f = os.path.join(ulidspooldir, ulid)
-        nove_kadrovske = []
-        kadrovska_fdir = None
-        for kadrovska in sorted(kadrovske):
+        others = set()
+        kadrovske_l = list(sorted(kadrovske))
+        dests = []
+        for kadrovska in kadrovske_l:
             kadrovska_f = os.path.join(spooldir, kadrovska)
-            if not (os.path.isdir(kadrovska_f) or os.path.islink(kadrovska_f)):
-                nove_kadrovske.append(kadrovska_f)
-            elif kadrovska_fdir is None:
-                kadrovska_fdir = kadrovska_f
-            else:
-                print("duplicate employee number:", kadrovska, kadrovska_fdir)
+            dests.append(kadrovska_f)
+        dests.append(ulid_f)
+        # print(f"dests: {dests}")
+        kadrovska_fdir = None
+        if not(os.path.islink(dests[0])) and os.path.isdir(dests[0]):
+            kadrovska_fdir = dests[0]
+        for dest in dests:
+            while os.path.islink(dest):
+                others.add(dest)
+                dest = os.path.realpath(os.readlink(dest))
+            others.add(dest)
+        olddir = None
+        others.discard(kadrovska_fdir)
+        already_ok = set()
+        # print(f" others:{others}")
+        for i in others:
+            if kadrovska_fdir is None:
+                if not os.path.islink(i) and os.path.isdir(i):
+                    olddir = i
+                    # print(f"olddir: {i}")
+                    continue
+            trash_fname = os.path.join(trashdir, os.path.basename(i))
+            if os.path.exists(i):
+                rl = None
+                islink = os.path.islink(i)
+                if islink:
+                    rl = os.readlink(i)
+                if kadrovska_fdir is not None and islink and rl == kadrovska_fdir:
+                    already_ok.add(i)
+                else:
+                    # print(f" fdir: {kadrovska_fdir}, {i} -> {rl} islink: {islink}")
+                    #if os.path.exists(trash_fname):
+                    #    os.path.unlink(trash_fname)
+                    print(f"mv {i} {trash_fname}")
+                    os.rename(i, trash_fname)
         if kadrovska_fdir is None:
-            kadrovska_fdir = nove_kadrovske[0]
-            nove_kadrovske = nove_kadrovske[1:]
-            print("mkdir ", kadrovska_fdir)
-            os.mkdir(kadrovska_fdir)
-        # print("kadrovska_fdir:", kadrovska_fdir, nove_kadrovske + [ulid_f])
-        for fname in nove_kadrovske + [ulid_f]:
-            if os.path.islink(fname):
-                if os.readlink(fname) != kadrovska_fdir:
-                    print("unlink ", fname)
-                    os.unlink(fname)
-                    os.symlink(kadrovska_fdir, fname)
+            kadrovska_fdir = os.path.join(spooldir, kadrovske_l[0])
+            if olddir is None:
+                print(f"mkdir {kadrovska_fdir}")
+                os.mkdir(kadrovska_fdir)
             else:
-                print("symlink ", kadrovska_fdir, fname)
-                os.symlink(kadrovska_fdir, fname)
+                print(f"mv {olddir} {kadrovska_fdir}")
+                os.rename(olddir, kadrovska_fdir)
+        already_ok.add(kadrovska_fdir)
+        for dest in dests:
+            if dest not in already_ok:
+                print(f"ln {kadrovska_fdir} {dest}")
+                os.symlink(kadrovska_fdir, dest)
+                already_ok.add(dest)
+        # print("kadrovska_fdir:", kadrovska_fdir, nove_kadrovske + [ulid_f])
         fix_f = os.path.join(ulid_f, FIX_FNAME)
         if not os.path.exists(fix_f):
             with open(fix_f, "a"):
