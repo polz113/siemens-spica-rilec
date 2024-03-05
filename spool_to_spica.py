@@ -60,8 +60,8 @@ def get_event_definitions():
 
 
 def put_time_event(api_url, api_key, timestamp, person_id, event_id,
-                   commit=False, spica_names={}):
-    print(timestamp, person_id, spica_names.get(person_id, person_id), event_id, commit)
+                   kadrovska, commit=False, spica_names={}):
+    print(timestamp, kadrovska, spica_names.get(person_id, person_id), event_id, commit)
     if not commit:
         return
     params = urllib.parse.urlencode({'SkipHolidays': False, 'numberOfDays': 1,
@@ -98,8 +98,9 @@ def get_spicaids(employees):
     for employee in employees:
         spica_id = employee["Id"]
         kadrovska = employee["ReferenceId"]
-        kadrovska_to_spica[kadrovska] = spica_id
-        spica_to_name[spica_id] = employee["FirstName"] + " " + employee["LastName"]
+        if employee.get('OrganizationalUnitId', '') is not None:
+            kadrovska_to_spica[kadrovska] = spica_id
+            spica_to_name[spica_id] = employee["FirstName"] + " " + employee["LastName"]
     return kadrovska_to_spica, spica_to_name
 
 
@@ -147,7 +148,8 @@ def handle_events(spooldir, api_url, api_key,
                             commit_this = commit and not __ends_with_1(nocommitname)
                             # print(commit_this, __ends_with_1(nocommitname))
                             put_time_event(api_url, api_key, timestamp, 
-                                    spica_id, event_type, commit=commit_this,
+                                    spica_id, event_type, kadrovska=kadrovska, 
+                                    commit=commit_this,
                                     spica_names=spica_names)
                             old_event_type = event_type
                         writer.writerow(row)
