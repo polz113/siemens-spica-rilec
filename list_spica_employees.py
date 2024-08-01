@@ -19,20 +19,23 @@ from urllib import parse, request
 from siemens_spica_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY,\
     SPOOL_DIR, SPOOL_FNAME, OLDEVENTS_FNAME, NOCOMMIT_FNAME
 
+def get_auth_token(api_url, api_username, api_password, api_key):
+    url = api_url + "/Session/GetSession"
+    data = json.dumps({"Username": api_username, "Password": api_password, "Sid": ""})
+    req = request.Request(url, data=data.encode(), headers={"Authorization": "SpicaToken {}".format(api_key), 'Content-Type': 'application/json'})
+    try:
+        resp = request.urlopen(req)
+        token = api_key + ":" + json.loads(resp.read())['Token']
+    except:
+        token = api_key
+    return "SpicaToken " + token
 
-# SPOOL_DIR = "/home/polz/projekti/siemens_log_examples/spool"
-
-
-#SPOOL_FNAME = "new_events.csv"
-#OLDEVENTS_FNAME = "old_events.csv"
-
-def get_employees(api_url, api_key):
+def get_employees(api_url, api_key, api_session):
     url = api_url + "/employee"
-    req = request.Request(url, headers={"Authorization": "SpicaToken " + api_key})
+    req = request.Request(url, headers={"Authorization": auth_token})
     resp = request.urlopen(req)
     ret = json.loads(resp.read())
     return ret
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Ustvari imenike za SAP ID in kadrovsko na osnovi podatkov iz Spice')
@@ -45,9 +48,15 @@ if __name__ == '__main__':
     parser.add_argument('--apikey', dest='api_key', action='store',
                     default=SPICA_KEY, type=str,
                     help='Skrivnost za dostop do Spice')
+    parser.add_argument('--username', dest='api_username', action='store',
+                    default=SPICA_USER, type=str,
+                    help='Uporabnik za dostop do Spice')
+    parser.add_argument('--password', dest='api_password', action='store',
+                    default=SPICA_PASSWD, type=str,
+                    help='Geslo za dostop do Spice')
     args = parser.parse_args()
-    employees = get_employees(args.api_url, args.api_key)
+    auth_token = get_auth_token(args.api_url, args.api_username, args.api_password, args.api_key)
+    employees = get_employees(args.api_url, args.api_key, session)
     for employee in employees:
         print("{ReferenceId} {LastName} {FirstName}".format(**employee))
         print("  {}".format(employee))
-    # print(json.dumps(employees))

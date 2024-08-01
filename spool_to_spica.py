@@ -39,27 +39,36 @@ EVENT_TRANSLATIONS = {
     "zdravnik": 70,
 }
 
+def get_auth_token(api_url, api_username, api_password, api_key):
+    url = api_url + "/Session/GetSession"
+    data = json.dumps({"Username": api_username, "Password": api_password, "Sid": ""})
+    req = request.Request(url, data=data.encode(), headers={"Authorization": "SpicaToken {}".format(api_key), 'Content-Type': 'application/json'})
+    try:
+        resp = request.urlopen(req)
+        token = api_key + ":" + json.loads(resp.read())['Token']
+    except:
+        token = api_key
+    return "SpicaToken " + token
 
-def get_employees(api_url, api_key):
+def get_employees(api_url, auth_token):
     url = api_url + "/employee"
-    req = request.Request(url, headers={"Authorization": "SpicaToken " + api_key})
+    req = request.Request(url, headers={"Authorization": auth_token})
     resp = request.urlopen(req)
     ret = json.loads(resp.read())
     return ret
 
-
-def get_event_definitions():
+def get_event_definitions(api_url, auth_token, api_session=None):
     params = urllib.parse.urlencode({'Type': 0})
     url = APIURL + "/EventDefinition?" + params
     # url = "{apiurl}/Session/GetSession/".format(apiurl=APIURL)
     # data = parse.urlencode({"username": SPICA_USER, "password": SPICA_PASSWD, sid:''})
-    req = request.Request(url, headers={"Authorization": "SpicaToken " + SPICA_KEY})
+    req = request.Request(url, headers={"Authorization": auth_token})
     resp = request.urlopen(req)
     ret = json.loads(resp.read())
     return ret
 
 
-def put_time_event(api_url, api_key, timestamp, person_id, event_id,
+def put_time_event(api_url, auth_token, api_session, timestamp, person_id, event_id,
                    kadrovska, commit=False, spica_names={}):
     print(timestamp, kadrovska, spica_names.get(person_id, person_id), event_id, commit)
     if not commit:
@@ -85,7 +94,7 @@ def put_time_event(api_url, api_key, timestamp, person_id, event_id,
     }
     
     req = request.Request(url, method='PUT',
-            headers={"Authorization": "SpicaToken " + api_key},
+            headers={"Authorization": auth_token},
             data=urllib.parse.urlencode(data).encode())
     resp = request.urlopen(req)
     ret = json.loads(resp.read())
@@ -117,7 +126,7 @@ def __ends_with_1(fname):
     return False
 
 
-def handle_events(spooldir, api_url, api_key, 
+def handle_events(spooldir, api_url, auth_token, 
         spica_ids, spica_names, event_translations,
         skip_last, no_skip_same=True, commit=False):
     for kadrovska in os.listdir(spooldir):
@@ -147,7 +156,7 @@ def handle_events(spooldir, api_url, api_key,
                         if (event_type != old_event_type) or no_skip_same:
                             commit_this = commit and not __ends_with_1(nocommitname)
                             # print(commit_this, __ends_with_1(nocommitname))
-                            put_time_event(api_url, api_key, timestamp, 
+                            put_time_event(api_url, auth_token, api_session, timestamp, 
                                     spica_id, event_type, kadrovska=kadrovska, 
                                     commit=commit_this,
                                     spica_names=spica_names)
@@ -183,10 +192,18 @@ if __name__ == '__main__':
     parser.add_argument('--apikey', dest='api_key', action='store',
                     default=SPICA_KEY, type=str,
                     help='Skrivnost za dostop do Spice')
+    parser.add_argument('--username', dest='api_username', action='store',
+                    default=SPICA_USER, type=str,
+                    help='Uporabnik za dostop do Spice')
+    parser.add_argument('--password', dest='api_password', action='store',
+                    default=SPICA_PASSWD, type=str,
+                    help='Geslo za dostop do Spice')
     args = parser.parse_args()
-    employees = get_employees(args.api_url, args.api_key)
+    auth_token = get_auth_token(args.api_url, args.api_username, args.api_password,
+                                args.api_key)
+    employees = get_employees(args.api_url, auth_token)
     spica_ids, spica_names = get_spicaids(employees)
-    handle_events(spooldir=args.spooldir, api_url=args.api_url, api_key=args.api_key, 
+    handle_events(spooldir=args.spooldir, api_url=args.api_url, auth_token=auth_token, 
                   spica_ids=spica_ids, spica_names=spica_names,
                   event_translations=EVENT_TRANSLATIONS,
                   skip_last=args.skiplast, no_skip_same=args.noskipsame,
