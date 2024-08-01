@@ -56,7 +56,7 @@ if __name__ == '__main__':
                     help='Geslo za dostop do Spice')
     args = parser.parse_args()
     auth_token = get_auth_token(args.api_url, args.api_username, args.api_password, args.api_key)
-    employees = get_employees(args.api_url, args.api_key, session)
+    employees = get_employees(args.api_url, args.api_key, auth_token)
     for employee in employees:
         print("{ReferenceId} {LastName} {FirstName}".format(**employee))
         print("  {}".format(employee))
