@@ -57,7 +57,7 @@ def get_employees(api_url, auth_token):
     ret = json.loads(resp.read())
     return ret
 
-def get_event_definitions(api_url, auth_token, api_session=None):
+def get_event_definitions(api_url, auth_token):
     params = urllib.parse.urlencode({'Type': 0})
     url = APIURL + "/EventDefinition?" + params
     # url = "{apiurl}/Session/GetSession/".format(apiurl=APIURL)
