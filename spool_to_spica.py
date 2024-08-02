@@ -32,6 +32,7 @@ EVENT_TRANSLATIONS = {
     '7': 43,
     '8': 43,
     '69': 43,
+    '68': 43,
     "odhod": 44,
     "malica": 45,
     "sluzbeni": 47,
