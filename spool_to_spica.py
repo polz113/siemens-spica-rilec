@@ -68,7 +68,7 @@ def get_event_definitions(api_url, auth_token, api_session=None):
     return ret
 
 
-def put_time_event(api_url, auth_token, api_session, timestamp, person_id, event_id,
+def put_time_event(api_url, auth_token, timestamp, person_id, event_id,
                    kadrovska, commit=False, spica_names={}):
     print(timestamp, kadrovska, spica_names.get(person_id, person_id), event_id, commit)
     if not commit:
@@ -156,7 +156,7 @@ def handle_events(spooldir, api_url, auth_token,
                         if (event_type != old_event_type) or no_skip_same:
                             commit_this = commit and not __ends_with_1(nocommitname)
                             # print(commit_this, __ends_with_1(nocommitname))
-                            put_time_event(api_url, auth_token, api_session, timestamp, 
+                            put_time_event(api_url, auth_token, timestamp, 
                                     spica_id, event_type, kadrovska=kadrovska, 
                                     commit=commit_this,
                                     spica_names=spica_names)
