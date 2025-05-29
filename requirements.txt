@@ -1,0 +1,2 @@
+# siemens-spica rilec only depends on the standard library
+
