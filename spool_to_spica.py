@@ -218,4 +218,3 @@ if __name__ == '__main__':
 #        events=event_definitions)
 #    print(json.dumps(ret))
     # print(json.dumps([employees, event_definitions]))
-
