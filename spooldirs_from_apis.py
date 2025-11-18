@@ -9,8 +9,8 @@ import urllib.parse
 import urllib.request
 import json
 
-from siemens_spica_settings import SPOOL_DIR, ULID_SPOOL_DIR, FIX_FNAME, NOCOMMIT_FNAME
-from apis_preslikava_kadrovskih_settings import APIS_USERS_URL, APIS_API_KEY, APIS_WEB_SPOOL_FIELD, APIS_MAIN_SPOOL_FIELD, FIX_OWNER, FIX_GROUP
+from siemens_spica_settings import SPOOL_DIR, ULID_SPOOL_DIR, FIX_FNAME, NOCOMMIT_FNAME, FIX_OWNER, FIX_GROUP
+from apis_preslikava_kadrovskih_settings import APIS_USERS_URL, APIS_API_KEY, APIS_WEB_SPOOL_FIELD, APIS_MAIN_SPOOL_FIELD
 
 #FIX_OWNER=1001
 #FIX_GROUP=33
