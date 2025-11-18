@@ -3,13 +3,14 @@
 import argparse
 import csv
 import os
+import shutils
 
 import urllib.parse
 import urllib.request
 import json
 
 from siemens_spica_settings import SPOOL_DIR, ULID_SPOOL_DIR, FIX_FNAME, NOCOMMIT_FNAME
-from apis_preslikava_kadrovskih_settings import APIS_USERS_URL, APIS_API_KEY, APIS_WEB_SPOOL_FIELD, APIS_MAIN_SPOOL_FIELD
+from apis_preslikava_kadrovskih_settings import APIS_USERS_URL, APIS_API_KEY, APIS_WEB_SPOOL_FIELD, APIS_MAIN_SPOOL_FIELD, FIX_OWNER, FIX_GROUP
 
 #FIX_OWNER=1001
 #FIX_GROUP=33
@@ -107,11 +108,11 @@ if __name__ == '__main__':
         if not os.path.exists(fix_f):
             with open(fix_f, "a"):
                 pass
-        # os.chown(fix_f, FIX_OWNER, FIX_GROUP)
+        shutil.chown(fix_f, FIX_OWNER, FIX_GROUP)
         os.chmod(fix_f, 0o660,)
         nocommit_f = os.path.join(main, NOCOMMIT_FNAME)
         if not os.path.exists(nocommit_f):
             with open(nocommit_f, "a"):
                 pass
-        # os.chown(nocommit_f, FIX_OWNER, FIX_GROUP)
+        shutil.chown(nocommit_f, FIX_OWNER, FIX_GROUP)
         os.chmod(nocommit_f, 0o660,)
