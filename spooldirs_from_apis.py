@@ -3,7 +3,7 @@
 import argparse
 import csv
 import os
-import shutils
+import shutil
 
 import urllib.parse
 import urllib.request
