@@ -97,7 +97,7 @@ if __name__ == '__main__':
         if ulid not in main_by_ulid:
             print("ERROR: missing main spool dir for ulid ", ulid)
             continue
-        l = [ os.path.join(webspooldir, i) for i in sorted(vals) ]
+        l = [ os.path.join(webspooldir, i.lower()) for i in sorted(vals) ]
         for path in l:
             if (os.path.islink(path)):
                 os.unlink(path)
