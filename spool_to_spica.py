@@ -28,6 +28,7 @@ from siemens_spica_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY,\
 FAKEEVENTS_FNAME = "fake_events.csv"
 
 EVENT_TRANSLATIONS = {
+    '1': 43,
     '2': 43,
     '7': 43,
     '8': 43,
