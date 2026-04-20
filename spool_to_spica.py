@@ -145,7 +145,10 @@ def handle_events(spooldir, api_url, auth_token,
                 fcntl.lockf(eventsfile, fcntl.LOCK_EX)
                 something_failed = False
                 try:
-                    spica_id = spica_ids[kadrovska]
+                    spica_id = spica_ids.get(kadrovska, None)
+                    if spica_id is None:
+                        print("Neznana kadrovska: " + kadrovska)
+                        continue
                     reader = csv.reader(spoolfile, delimiter=',', quotechar='"')
                     writer = csv.writer(eventsfile)
                     rows = sorted(list(reader))
