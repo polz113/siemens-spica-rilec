@@ -11,13 +11,17 @@ import itertools
 import argparse
 import traceback
 
+from pathlib import Path
 
 from collections import defaultdict
 
 from urllib import parse, request
 
 from siemens_spica_settings import APIURL, SPICA_USER, SPICA_PASSWD, SPICA_KEY,\
-    SPOOL_DIR, SPOOL_FNAME, OLDEVENTS_FNAME, NOCOMMIT_FNAME
+    SPOOL_DIR, SPOOL_FNAME, OLDEVENTS_FNAME, NOCOMMIT_FNAME,\
+    NEWEVENT_DAYS, RETENTION_DAYS,\
+    SENTEVENTS_FNAME, FAKEEVENTS_FNAME,\
+    FIXSPOOL_FNAME, OLDFIXES_FNAME, PERMAFIX_FNAME
 
 
 # SPOOL_DIR = "/home/polz/projekti/siemens_log_examples/spool"
@@ -53,12 +57,14 @@ def get_auth_token(api_url, api_username, api_password, api_key):
         token = api_key
     return "SpicaToken " + token
 
+
 def get_employees(api_url, auth_token):
     url = api_url + "/employee"
     req = request.Request(url, headers={"Authorization": auth_token})
     resp = request.urlopen(req)
     ret = json.loads(resp.read())
     return ret
+
 
 def get_event_definitions(api_url, auth_token):
     params = urllib.parse.urlencode({'Type': 0})
@@ -129,19 +135,83 @@ def __ends_with_1(fname):
     return False
 
 
+def load_fixes(path, fixes=FIXSPOOL_FNAME, permafixes=PERMAFIX_FNAME):
+    fixespath = path / fixesname
+    permafixespath = path / permafixes
+    if permafixespath.is_file():
+        with open(permafixespath) as fixesf:
+            reader = csv.reader(fixesf, delimiter=',', quotechar='"')
+            permaresult += sorted(list(reader))
+    if fixespath.is_file():
+        with open(fixesname) as fixesf:
+            reader = csv.reader(fixesf, delimiter=',', quotechar='"')
+            result += sorted(list(reader))
+    return permaresult, result
+
+
+def eventrotate(new_path, old_path, cutoff, nocheck=False):
+    new_new_path = new_path.with_suffix('.new_new')
+    if new_new_path.is_file() and not nocheck:
+        # tmp file exists
+        return
+    if new_path.is_file():
+        with open(new_path, "r") as new_file,
+                open(new_new_path, "w") as new_new_file:
+            try:
+                old_writer = csv.writer(open(old_path, "a+"))
+            except:
+                if old_path is None:
+                    old_writer = None
+                else:
+                    return
+            new_new_writer = csv.writer(new_new_file)
+            reader = csv.reader(fixesf, delimiter=',', quotechar='"')
+            for l in reader:
+                t = datetime.datetime.fromisoformat(l[0])
+                if t < cutoff and old_writer is not None:
+                    old_writer.write(l)
+                if t >= cutoff:
+                    new_new_writer.write(l)
+    new_new_path.rename(new_path)
+
+
+def fix_events(events, fixes, permafixes, timestamp):
+    n_events = []
+    for e_timestr, e_type in events:
+        n_etime = datetime.datetime.fromisoformat(e_timestr)
+        n_events.append([n_etime, 8, e_type])
+    events = n_events
+    fixes = []
+    # convert 
+    if len(permafixes) > 0:
+        d1 = events[0][0]
+        d2 = events[-1][0]
+        while d1 <= d2:
+            for fix in permafixes:
+                fixes.append([datetime.datetime.fromisoformat(fix[0]), 0, fix[1]])
+            d1 += datetime.timedelta(days=1)
+    fixes.append([i[0], 1, i[1] for i in fixes])
+    fixed = []
+    for i in sorted(events + fixes):
+        pass
+    return fixed
+
+
 def handle_events(spooldir, api_url, auth_token, 
         spica_ids, spica_names, event_translations,
         skip_last, no_skip_same=True, commit=False):
-    for kadrovska in os.listdir(spooldir):
-        spoolname = os.path.join(spooldir, kadrovska, SPOOL_FNAME)
+    spoolpath = Path(spooldir)
+    for kadrovska in spoolpath.iterdir():
+        userspool = kadrovska / SPOOL_FNAME
         nocommitname = os.path.join(spooldir, kadrovska, NOCOMMIT_FNAME)
+        fixes, permafixes = load_fixes(kadrovska)
         if commit:
-            eventsname = os.path.join(spooldir, kadrovska, OLDEVENTS_FNAME)
+            userevents = kadrovska / OLDEVENTS_FNAME
         else:
-            eventsname = os.path.join(spooldir, kadrovska, FAKEEVENTS_FNAME)
-        if os.path.isfile(spoolname):
-            with open(spoolname, "r+") as spoolfile,\
-                    open(eventsname, "a") as eventsfile:
+            userevents = kadrovska / FAKEEVENTS_FNAME
+        if userspool.is_file():
+            with open(userspool, "r+") as spoolfile,\
+                    open(userevents, "a") as eventsfile:
                 fcntl.lockf(spoolfile, fcntl.LOCK_EX)
                 fcntl.lockf(eventsfile, fcntl.LOCK_EX)
                 something_failed = False
@@ -152,21 +222,14 @@ def handle_events(spooldir, api_url, auth_token,
                         continue
                     reader = csv.reader(spoolfile, delimiter=',', quotechar='"')
                     writer = csv.writer(eventsfile)
-                    rows = sorted(list(reader))
-                    if skip_last:
-                        rows = rows[:-1]
-                    old_event_type = None
+                    rows = use_fixes(reader, fixes, permafixes)
                     for row in rows:
                         timestamp = datetime.datetime.fromisoformat(row[0])
-                        event_type = event_translations[row[1]]
-                        if (event_type != old_event_type) or no_skip_same:
-                            commit_this = commit and not __ends_with_1(nocommitname)
-                            # print(commit_this, __ends_with_1(nocommitname))
-                            put_time_event(api_url, auth_token, timestamp, 
-                                    spica_id, event_type, kadrovska=kadrovska, 
-                                    commit=commit_this,
-                                    spica_names=spica_names)
-                            old_event_type = event_type
+                        event_type = row[1]
+                        put_time_event(api_url, auth_token, timestamp, 
+                                spica_id, event_type, kadrovska=kadrovska, 
+                                commit=commit,
+                                spica_names=spica_names)
                         writer.writerow(row)
                     spoolfile.truncate(0)
                 except Exception as e:
@@ -177,6 +240,7 @@ def handle_events(spooldir, api_url, auth_token,
                     fcntl.lockf(spoolfile, fcntl.LOCK_UN)
                     fcntl.lockf(eventsfile, fcntl.LOCK_UN)
                     if something_failed: continue
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Prenesi podatke na spico')
