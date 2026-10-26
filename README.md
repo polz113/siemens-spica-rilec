@@ -1,3 +1,7 @@
+# RAZVOJ PREMAKNJEN
+
+Repozitorij je sedaj na [https://git.fri.uni-lj.si/rc/siemens-spica-rilec.git](https://git.fri.uni-lj.si/rc/siemens-spica-rilec.git).
+
 # siemens-spica-rilec
 
 Vmesnik za prenos podatkov iz sistema Siemens SiPass v sistem Spica time&space.
